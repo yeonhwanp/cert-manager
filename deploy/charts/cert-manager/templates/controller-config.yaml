@@ -1,7 +1,10 @@
-{{- if .Values.config -}}
-{{- $config := .Values.config -}}
-{{- $perComponentLimits := default dict $config.pemSizeLimitsConfig -}}
+{{- $perComponentLimits := dict -}}
+{{- if and .Values.config .Values.config.pemSizeLimitsConfig -}}
+{{- $perComponentLimits = .Values.config.pemSizeLimitsConfig -}}
+{{- end -}}
 {{- $pemLimits := merge (dict) $perComponentLimits (default dict .Values.global.pemSizeLimitsConfig) -}}
+{{- if or .Values.config $pemLimits -}}
+{{- $config := default (dict) .Values.config -}}
 {{- if $pemLimits -}}
 {{- $_ := set $config "pemSizeLimitsConfig" $pemLimits -}}
 {{- end -}}

@@ -73,9 +73,10 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if or .Values.volumes .Values.config}}
+      {{- $hasConfig := or .Values.config .Values.global.pemSizeLimitsConfig -}}
+      {{- if or .Values.volumes $hasConfig }}
       volumes:
-        {{- if .Values.config }}
+        {{- if $hasConfig }}
         - name: config
           configMap:
             name: {{ include "cert-manager.fullname" . }}
@@ -93,7 +94,7 @@ spec:
           {{- if not (has (quote .Values.global.logLevel) (list "" (quote ""))) }}
           - --v={{ .Values.global.logLevel }}
           {{- end }}
-          {{- if .Values.config }}
+          {{- if $hasConfig }}
           - --config=/var/cert-manager/config/config.yaml
           {{- end }}
           {{- $config := default .Values.config "" }}
@@ -158,9 +159,9 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if or .Values.config .Values.volumeMounts }}
+          {{- if or $hasConfig .Values.volumeMounts }}
           volumeMounts:
-            {{- if .Values.config }}
+            {{- if $hasConfig }}
             - name: config
               mountPath: /var/cert-manager/config
             {{- end }}

@@ -1,7 +1,10 @@
-{{- if .Values.webhook.config -}}
-{{- $config := .Values.webhook.config -}}
-{{- $perComponentLimits := default dict $config.pemSizeLimitsConfig -}}
+{{- $perComponentLimits := dict -}}
+{{- if and .Values.webhook.config .Values.webhook.config.pemSizeLimitsConfig -}}
+{{- $perComponentLimits = .Values.webhook.config.pemSizeLimitsConfig -}}
+{{- end -}}
 {{- $pemLimits := merge (dict) $perComponentLimits (default dict .Values.global.pemSizeLimitsConfig) -}}
+{{- if or .Values.webhook.config $pemLimits -}}
+{{- $config := default (dict) .Values.webhook.config -}}
 {{- if $pemLimits -}}
 {{- $_ := set $config "pemSizeLimitsConfig" $pemLimits -}}
 {{- end -}}

@@ -79,6 +79,7 @@ spec:
       {{- if .Values.webhook.hostNetwork }}
       dnsPolicy: ClusterFirstWithHostNet
       {{- end }}
+      {{- $hasWebhookConfig := or .Values.webhook.config .Values.global.pemSizeLimitsConfig -}}
       containers:
         - name: {{ .Chart.Name }}-webhook
           image: "{{ template "image" (tuple .Values.webhook.image .Values.imageRegistry .Values.imageNamespace (printf ":%s" .Chart.AppVersion)) }}"
@@ -88,7 +89,7 @@ spec:
           {{- if not (has (quote .Values.global.logLevel) (list "" (quote ""))) }}
           - --v={{ .Values.global.logLevel }}
           {{- end }}
-          {{- if .Values.webhook.config }}
+          {{- if $hasWebhookConfig }}
           - --config=/var/cert-manager/config/config.yaml
           {{- end }}
           {{- $config := default .Values.webhook.config "" }}
@@ -182,9 +183,9 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if or .Values.webhook.config .Values.webhook.volumeMounts }}
+          {{- if or $hasWebhookConfig .Values.webhook.volumeMounts }}
           volumeMounts:
-            {{- if .Values.webhook.config }}
+            {{- if $hasWebhookConfig }}
             - name: config
               mountPath: /var/cert-manager/config
             {{- end }}
@@ -212,9 +213,9 @@ spec:
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if or .Values.webhook.config .Values.webhook.volumes }}
+      {{- if or $hasWebhookConfig .Values.webhook.volumes }}
       volumes:
-        {{- if .Values.webhook.config }}
+        {{- if $hasWebhookConfig }}
         - name: config
           configMap:
             name: {{ include "webhook.fullname" . }}
