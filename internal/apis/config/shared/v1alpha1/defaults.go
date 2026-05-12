@@ -30,6 +30,12 @@ var (
 	defaultLeaderElectionLeaseDuration = 60 * time.Second
 	defaultLeaderElectionRenewDeadline = 40 * time.Second
 	defaultLeaderElectionRetryPeriod   = 15 * time.Second
+
+	// PEM size limit defaults — mirror the constants in internal/pem/decode.go.
+	defaultMaxCertificateSize int32 = 36500
+	defaultMaxPrivateKeySize  int32 = 13000
+	defaultMaxChainLength     int32 = 95000
+	defaultMaxBundleSize      int32 = 330000
 )
 
 func SetDefaults_DynamicServingConfig(obj *v1alpha1.DynamicServingConfig) {
@@ -57,5 +63,23 @@ func SetDefaults_LeaderElectionConfig(obj *v1alpha1.LeaderElectionConfig) {
 
 	if obj.RetryPeriod.IsZero() {
 		obj.RetryPeriod = v1alpha1.DurationFromTime(defaultLeaderElectionRetryPeriod)
+	}
+}
+
+func SetDefaults_PEMSizeLimitsConfig(obj *v1alpha1.PEMSizeLimitsConfig) {
+	if obj.MaxCertificateSize == nil {
+		obj.MaxCertificateSize = &defaultMaxCertificateSize
+	}
+
+	if obj.MaxPrivateKeySize == nil {
+		obj.MaxPrivateKeySize = &defaultMaxPrivateKeySize
+	}
+
+	if obj.MaxChainLength == nil {
+		obj.MaxChainLength = &defaultMaxChainLength
+	}
+
+	if obj.MaxBundleSize == nil {
+		obj.MaxBundleSize = &defaultMaxBundleSize
 	}
 }

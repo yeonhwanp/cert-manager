@@ -51,6 +51,18 @@ func Convert_v1alpha1_LeaderElectionConfig_To_shared_LeaderElectionConfig(in *v1
 	return autoConvert_v1alpha1_LeaderElectionConfig_To_shared_LeaderElectionConfig(in, out, s)
 }
 
+// Convert_shared_PEMSizeLimitsConfig_To_v1alpha1_PEMSizeLimitsConfig is explicitly defined to avoid issues in conversion-gen
+// when referencing types in other API groups.
+func Convert_shared_PEMSizeLimitsConfig_To_v1alpha1_PEMSizeLimitsConfig(in *shared.PEMSizeLimitsConfig, out *v1alpha1.PEMSizeLimitsConfig, s conversion.Scope) error {
+	return autoConvert_shared_PEMSizeLimitsConfig_To_v1alpha1_PEMSizeLimitsConfig(in, out, s)
+}
+
+// Convert_v1alpha1_PEMSizeLimitsConfig_To_shared_PEMSizeLimitsConfig is explicitly defined to avoid issues in conversion-gen
+// when referencing types in other API groups.
+func Convert_v1alpha1_PEMSizeLimitsConfig_To_shared_PEMSizeLimitsConfig(in *v1alpha1.PEMSizeLimitsConfig, out *shared.PEMSizeLimitsConfig, s conversion.Scope) error {
+	return autoConvert_v1alpha1_PEMSizeLimitsConfig_To_shared_PEMSizeLimitsConfig(in, out, s)
+}
+
 func Convert_Pointer_float32_To_float32(in **float32, out *float32, s conversion.Scope) error {
 	if *in == nil {
 		*out = 0

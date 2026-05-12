@@ -89,6 +89,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*shared.PEMSizeLimitsConfig)(nil), (*sharedv1alpha1.PEMSizeLimitsConfig)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_shared_PEMSizeLimitsConfig_To_v1alpha1_PEMSizeLimitsConfig(a.(*shared.PEMSizeLimitsConfig), b.(*sharedv1alpha1.PEMSizeLimitsConfig), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*shared.TLSConfig)(nil), (*sharedv1alpha1.TLSConfig)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_shared_TLSConfig_To_v1alpha1_TLSConfig(a.(*shared.TLSConfig), b.(*sharedv1alpha1.TLSConfig), scope)
 	}); err != nil {
@@ -101,6 +106,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*sharedv1alpha1.LeaderElectionConfig)(nil), (*shared.LeaderElectionConfig)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_LeaderElectionConfig_To_shared_LeaderElectionConfig(a.(*sharedv1alpha1.LeaderElectionConfig), b.(*shared.LeaderElectionConfig), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*sharedv1alpha1.PEMSizeLimitsConfig)(nil), (*shared.PEMSizeLimitsConfig)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_PEMSizeLimitsConfig_To_shared_PEMSizeLimitsConfig(a.(*sharedv1alpha1.PEMSizeLimitsConfig), b.(*shared.PEMSizeLimitsConfig), scope)
 	}); err != nil {
 		return err
 	}
@@ -193,6 +203,38 @@ func autoConvert_shared_LeaderElectionConfig_To_v1alpha1_LeaderElectionConfig(in
 		return err
 	}
 	if err := Convert_time_Duration_To_Pointer_v1alpha1_Duration(&in.RetryPeriod, &out.RetryPeriod, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+func autoConvert_v1alpha1_PEMSizeLimitsConfig_To_shared_PEMSizeLimitsConfig(in *sharedv1alpha1.PEMSizeLimitsConfig, out *shared.PEMSizeLimitsConfig, s conversion.Scope) error {
+	if err := Convert_Pointer_int32_To_int(&in.MaxCertificateSize, &out.MaxCertificateSize, s); err != nil {
+		return err
+	}
+	if err := Convert_Pointer_int32_To_int(&in.MaxPrivateKeySize, &out.MaxPrivateKeySize, s); err != nil {
+		return err
+	}
+	if err := Convert_Pointer_int32_To_int(&in.MaxChainLength, &out.MaxChainLength, s); err != nil {
+		return err
+	}
+	if err := Convert_Pointer_int32_To_int(&in.MaxBundleSize, &out.MaxBundleSize, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+func autoConvert_shared_PEMSizeLimitsConfig_To_v1alpha1_PEMSizeLimitsConfig(in *shared.PEMSizeLimitsConfig, out *sharedv1alpha1.PEMSizeLimitsConfig, s conversion.Scope) error {
+	if err := Convert_int_To_Pointer_int32(&in.MaxCertificateSize, &out.MaxCertificateSize, s); err != nil {
+		return err
+	}
+	if err := Convert_int_To_Pointer_int32(&in.MaxPrivateKeySize, &out.MaxPrivateKeySize, s); err != nil {
+		return err
+	}
+	if err := Convert_int_To_Pointer_int32(&in.MaxChainLength, &out.MaxChainLength, s); err != nil {
+		return err
+	}
+	if err := Convert_int_To_Pointer_int32(&in.MaxBundleSize, &out.MaxBundleSize, s); err != nil {
 		return err
 	}
 	return nil

@@ -28,8 +28,8 @@ import (
 )
 
 // validPEMSizeLimitsConfig returns a valid PEMSizeLimitsConfig for testing
-func validPEMSizeLimitsConfig() config.PEMSizeLimitsConfig {
-	return config.PEMSizeLimitsConfig{
+func validPEMSizeLimitsConfig() shared.PEMSizeLimitsConfig {
+	return shared.PEMSizeLimitsConfig{
 		MaxCertificateSize: 36500,
 		MaxPrivateKeySize:  13000,
 		MaxChainLength:     95000,
@@ -150,7 +150,7 @@ func TestValidateWebhookConfiguration(t *testing.T) {
 				Logging: logsapi.LoggingConfiguration{
 					Format: "text",
 				},
-				PEMSizeLimitsConfig: config.PEMSizeLimitsConfig{
+				PEMSizeLimitsConfig: shared.PEMSizeLimitsConfig{
 					MaxCertificateSize: 400000,
 					MaxPrivateKeySize:  13000,
 					MaxChainLength:     95000,
@@ -177,79 +177,3 @@ func TestValidateWebhookConfiguration(t *testing.T) {
 	}
 }
 
-func TestValidatePEMSizeLimitsConfig(t *testing.T) {
-	tests := []struct {
-		name   string
-		config *config.PEMSizeLimitsConfig
-		errs   field.ErrorList
-	}{
-		{
-			"with valid PEM size limits config",
-			&config.PEMSizeLimitsConfig{
-				MaxCertificateSize: 36500,
-				MaxPrivateKeySize:  13000,
-				MaxChainLength:     95000,
-				MaxBundleSize:      330000,
-			},
-			nil,
-		},
-		{
-			"with zero MaxCertificateSize",
-			&config.PEMSizeLimitsConfig{
-				MaxCertificateSize: 0,
-				MaxPrivateKeySize:  13000,
-				MaxChainLength:     95000,
-				MaxBundleSize:      330000,
-			},
-			field.ErrorList{
-				field.Invalid(field.NewPath("").Child("maxCertificateSize"), 0, "must be greater than 0"),
-			},
-		},
-		{
-			"with MaxCertificateSize larger than MaxBundleSize",
-			&config.PEMSizeLimitsConfig{
-				MaxCertificateSize: 400000,
-				MaxPrivateKeySize:  13000,
-				MaxChainLength:     95000,
-				MaxBundleSize:      330000,
-			},
-			field.ErrorList{
-				field.Invalid(field.NewPath("").Child("maxCertificateSize"), 400000, "must not be larger than maxBundleSize"),
-			},
-		},
-		{
-			"with chain size exceeding bundle size",
-			&config.PEMSizeLimitsConfig{
-				MaxCertificateSize: 36500,
-				MaxPrivateKeySize:  13000,
-				MaxChainLength:     400000,
-				MaxBundleSize:      330000,
-			},
-			field.ErrorList{
-				field.Invalid(field.NewPath("").Child("maxChainLength"), 400000, "must not exceed maxBundleSize"),
-			},
-		},
-		{
-			"with all zero values",
-			&config.PEMSizeLimitsConfig{
-				MaxCertificateSize: 0,
-				MaxPrivateKeySize:  0,
-				MaxChainLength:     0,
-				MaxBundleSize:      0,
-			},
-			field.ErrorList{
-				field.Invalid(field.NewPath("").Child("maxCertificateSize"), 0, "must be greater than 0"),
-				field.Invalid(field.NewPath("").Child("maxPrivateKeySize"), 0, "must be greater than 0"),
-				field.Invalid(field.NewPath("").Child("maxChainLength"), 0, "must be greater than 0"),
-				field.Invalid(field.NewPath("").Child("maxBundleSize"), 0, "must be greater than 0"),
-			},
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			errs := validatePEMSizeLimitsConfig(test.config, field.NewPath(""))
-			assert.ElementsMatch(t, test.errs, errs)
-		})
-	}
-}

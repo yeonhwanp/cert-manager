@@ -28,6 +28,7 @@ import (
 	"github.com/go-logr/logr"
 	logsapi "k8s.io/component-base/logs/api/v1"
 
+	"github.com/cert-manager/cert-manager/internal/apis/config/shared"
 	config "github.com/cert-manager/cert-manager/internal/apis/config/webhook"
 	"github.com/cert-manager/cert-manager/internal/pem"
 	"github.com/cert-manager/cert-manager/pkg/webhook/options"
@@ -227,7 +228,7 @@ func TestConfigurePEMSizeLimits(t *testing.T) {
 		{
 			name: "valid configuration",
 			config: &config.WebhookConfiguration{
-				PEMSizeLimitsConfig: config.PEMSizeLimitsConfig{
+				PEMSizeLimitsConfig: shared.PEMSizeLimitsConfig{
 					MaxCertificateSize: 6500,
 					MaxPrivateKeySize:  13000,
 					MaxChainLength:     10,
@@ -239,7 +240,7 @@ func TestConfigurePEMSizeLimits(t *testing.T) {
 		{
 			name: "zero certificate size",
 			config: &config.WebhookConfiguration{
-				PEMSizeLimitsConfig: config.PEMSizeLimitsConfig{
+				PEMSizeLimitsConfig: shared.PEMSizeLimitsConfig{
 					MaxCertificateSize: 0,
 					MaxPrivateKeySize:  13000,
 					MaxChainLength:     10,
@@ -252,7 +253,7 @@ func TestConfigurePEMSizeLimits(t *testing.T) {
 		{
 			name: "certificate size larger than bundle size",
 			config: &config.WebhookConfiguration{
-				PEMSizeLimitsConfig: config.PEMSizeLimitsConfig{
+				PEMSizeLimitsConfig: shared.PEMSizeLimitsConfig{
 					MaxCertificateSize: 400000,
 					MaxPrivateKeySize:  13000,
 					MaxChainLength:     10,
@@ -292,7 +293,7 @@ func TestConfigurePEMSizeLimits_AppliedGlobally(t *testing.T) {
 	})
 
 	cfg := &config.WebhookConfiguration{
-		PEMSizeLimitsConfig: config.PEMSizeLimitsConfig{
+		PEMSizeLimitsConfig: shared.PEMSizeLimitsConfig{
 			MaxCertificateSize: 100000,
 			MaxPrivateKeySize:  20000,
 			MaxChainLength:     200000,

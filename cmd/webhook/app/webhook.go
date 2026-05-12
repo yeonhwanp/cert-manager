@@ -48,8 +48,6 @@ func NewServerCommand(ctx context.Context) *cobra.Command {
 			versionInfo := util.VersionInfo()
 			log.Info("starting cert-manager webhook", "version", versionInfo.GitVersion, "git_commit", versionInfo.GitCommit, "go_version", versionInfo.GoVersion, "platform", versionInfo.Platform)
 
-			// Configure PEM size limits before constructing the webhook server so
-			// that the first admission request sees the configured values.
 			if err := configurePEMSizeLimits(webhookConfig, log); err != nil {
 				return fmt.Errorf("failed to configure PEM size limits: %w", err)
 			}

@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	config "github.com/cert-manager/cert-manager/internal/apis/config/controller"
+	"github.com/cert-manager/cert-manager/internal/apis/config/shared"
 	"github.com/go-logr/logr"
 	logsapi "k8s.io/component-base/logs/api/v1"
 
@@ -232,7 +233,7 @@ func TestConfigurePEMSizeLimits(t *testing.T) {
 		{
 			name: "valid configuration",
 			config: &config.ControllerConfiguration{
-				PEMSizeLimitsConfig: config.PEMSizeLimitsConfig{
+				PEMSizeLimitsConfig: shared.PEMSizeLimitsConfig{
 					MaxCertificateSize: 6500,
 					MaxPrivateKeySize:  13000,
 					MaxChainLength:     10,
@@ -244,7 +245,7 @@ func TestConfigurePEMSizeLimits(t *testing.T) {
 		{
 			name: "zero certificate size",
 			config: &config.ControllerConfiguration{
-				PEMSizeLimitsConfig: config.PEMSizeLimitsConfig{
+				PEMSizeLimitsConfig: shared.PEMSizeLimitsConfig{
 					MaxCertificateSize: 0,
 					MaxPrivateKeySize:  13000,
 					MaxChainLength:     10,
@@ -257,7 +258,7 @@ func TestConfigurePEMSizeLimits(t *testing.T) {
 		{
 			name: "certificate size larger than bundle size",
 			config: &config.ControllerConfiguration{
-				PEMSizeLimitsConfig: config.PEMSizeLimitsConfig{
+				PEMSizeLimitsConfig: shared.PEMSizeLimitsConfig{
 					MaxCertificateSize: 400000,
 					MaxPrivateKeySize:  13000,
 					MaxChainLength:     10,
