@@ -811,7 +811,6 @@ webhook:
   #      secretName: "cert-manager-metrics-ca"
   #      dnsNames:
   #      - cert-manager-metrics
-  #
   config: {}
 
   # The update strategy for the cert-manager webhook deployment.
