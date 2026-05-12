@@ -192,6 +192,34 @@ The interval between attempts by the acting master to renew a leadership slot be
 
 The duration the clients should wait between attempting acquisition and renewal of a leadership.
 
+#### **global.pemSizeLimitsConfig.maxCertificateSize** ~ `number`
+> Default value:
+> ```yaml
+> 36500
+> ```
+
+Maximum size for a single PEM-encoded certificate (in bytes).
+#### **global.pemSizeLimitsConfig.maxPrivateKeySize** ~ `number`
+> Default value:
+> ```yaml
+> 13000
+> ```
+
+Maximum size for a single PEM-encoded private key (in bytes).
+#### **global.pemSizeLimitsConfig.maxChainLength** ~ `number`
+> Default value:
+> ```yaml
+> 95000
+> ```
+
+Maximum size for a PEM-encoded certificate chain (in bytes).
+#### **global.pemSizeLimitsConfig.maxBundleSize** ~ `number`
+> Default value:
+> ```yaml
+> 330000
+> ```
+
+Maximum size for PEM-encoded certificate bundles (in bytes).
 #### **installCRDs** ~ `bool`
 > Default value:
 > ```yaml
@@ -462,13 +490,6 @@ config:
       secretName: "cert-manager-metrics-ca"
       dnsNames:
       - cert-manager-metrics
-  # Configure PEM size limits for certificate validation
-  # Useful for certificates with many DNS names (e.g., Istio gateways with 100+ DNS names)
-  pemSizeLimitsConfig:
-    maxCertificateSize: 36500     # Maximum size in bytes for individual certificates (default: 36500)
-    maxPrivateKeySize: 13000      # Maximum size in bytes for private keys (default: 13000)
-    maxChainLength: 95000         # Maximum size in bytes for certificate chains (default: 95000)
-    maxBundleSize: 330000         # Maximum size in bytes for certificate bundles (default: 330000)
 ```
 #### **dns01RecursiveNameservers** ~ `string`
 > Default value:
@@ -1068,6 +1089,8 @@ metricsTLSConfig:
     dnsNames:
     - cert-manager-metrics
 ```
+
+
 #### **webhook.strategy** ~ `object`
 > Default value:
 > ```yaml

@@ -1,5 +1,13 @@
-{{- if .Values.webhook.config -}}
-{{- $config := .Values.webhook.config -}}
+{{- $perComponentLimits := dict -}}
+{{- if and .Values.webhook.config .Values.webhook.config.pemSizeLimitsConfig -}}
+{{- $perComponentLimits = .Values.webhook.config.pemSizeLimitsConfig -}}
+{{- end -}}
+{{- $pemLimits := merge (dict) $perComponentLimits (default dict .Values.global.pemSizeLimitsConfig) -}}
+{{- if or .Values.webhook.config $pemLimits -}}
+{{- $config := default (dict) .Values.webhook.config -}}
+{{- if $pemLimits -}}
+{{- $_ := set $config "pemSizeLimitsConfig" $pemLimits -}}
+{{- end -}}
 {{- $_ := set $config "apiVersion" (default "webhook.config.cert-manager.io/v1alpha1" $config.apiVersion) -}}
 {{- $_ := set $config "kind" (default "WebhookConfiguration" $config.kind) -}}
 apiVersion: v1

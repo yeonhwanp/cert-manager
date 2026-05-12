@@ -90,6 +90,26 @@ global:
     # +docs:property
     # retryPeriod: 15s
 
+  # Limits on the size of PEM-encoded material that cert-manager will decode.
+  # These apply to every cert-manager binary (controller, webhook) because they
+  # all import the same PEM decoder and configure the same process-global
+  # limits at startup. Override the four values per-component under
+  # `.config.pemSizeLimitsConfig` (controller) or
+  # `.webhook.config.pemSizeLimitsConfig` (webhook) if a single binary needs
+  # different limits — per-component values win over the global block.
+  pemSizeLimitsConfig:
+    # Maximum size for a single PEM-encoded certificate (in bytes).
+    maxCertificateSize: 36500
+
+    # Maximum size for a single PEM-encoded private key (in bytes).
+    maxPrivateKeySize: 13000
+
+    # Maximum size for a PEM-encoded certificate chain (in bytes).
+    maxChainLength: 95000
+
+    # Maximum size for PEM-encoded certificate bundles (in bytes).
+    maxBundleSize: 330000
+
 # This option is equivalent to setting crds.enabled=true and crds.keep=true.
 # Deprecated: use crds.enabled and crds.keep instead.
 installCRDs: false
@@ -311,13 +331,6 @@ enableCertificateOwnerRef: false
 #        secretName: "cert-manager-metrics-ca"
 #        dnsNames:
 #        - cert-manager-metrics
-#    # Configure PEM size limits for certificate validation
-#    # Useful for certificates with many DNS names (e.g., Istio gateways with 100+ DNS names)
-#    pemSizeLimitsConfig:
-#      maxCertificateSize: 36500     # Maximum size in bytes for individual certificates (default: 36500)
-#      maxPrivateKeySize: 13000      # Maximum size in bytes for private keys (default: 13000)
-#      maxChainLength: 95000         # Maximum size in bytes for certificate chains (default: 95000)
-#      maxBundleSize: 330000         # Maximum size in bytes for certificate bundles (default: 330000)
 config: {}
 
 # Setting Nameservers for DNS01 Self Check.
@@ -798,15 +811,6 @@ webhook:
   #      secretName: "cert-manager-metrics-ca"
   #      dnsNames:
   #      - cert-manager-metrics
-  #  # Configure PEM size limits for certificate request admission validation.
-  #  # The webhook enforces its own limits independently of the controller, so
-  #  # this block must be kept in sync with `.config.pemSizeLimitsConfig`.
-  #  # Useful for certificates with many DNS names.
-  #  pemSizeLimitsConfig:
-  #    maxCertificateSize: 36500     # Maximum size in bytes for individual certificates (default: 36500)
-  #    maxPrivateKeySize: 13000      # Maximum size in bytes for private keys (default: 13000)
-  #    maxChainLength: 95000         # Maximum size in bytes for certificate chains (default: 95000)
-  #    maxBundleSize: 330000         # Maximum size in bytes for certificate bundles (default: 330000)
   #
   config: {}
 
