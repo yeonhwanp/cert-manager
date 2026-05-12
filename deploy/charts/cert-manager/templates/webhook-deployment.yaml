@@ -79,7 +79,7 @@ spec:
       {{- if .Values.webhook.hostNetwork }}
       dnsPolicy: ClusterFirstWithHostNet
       {{- end }}
-      {{- $hasWebhookConfig := or .Values.webhook.config .Values.global.pemSizeLimitsConfig -}}
+      {{- $hasWebhookConfig := or .Values.webhook.config .Values.global.pemSizeLimitsConfig }}
       containers:
         - name: {{ .Chart.Name }}-webhook
           image: "{{ template "image" (tuple .Values.webhook.image .Values.imageRegistry .Values.imageNamespace (printf ":%s" .Chart.AppVersion)) }}"
