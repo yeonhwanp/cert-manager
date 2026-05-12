@@ -21,8 +21,13 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/go-logr/logr"
+
+	"github.com/cert-manager/cert-manager/internal/apis/config/shared"
 )
 
 // fuzzFile is a fuzz-test-generated file which causes significant slowdown when passed to
@@ -355,5 +360,60 @@ func TestChainSizeCalculation(t *testing.T) {
 	_, _, err = limits.SafeDecodeCertificateChain(largeCert)
 	if err == nil {
 		t.Error("Expected SafeDecodeCertificateChain to fail due to size limits")
+	}
+}
+
+func TestApplyGlobalSizeLimits_AppliesToGlobal(t *testing.T) {
+	t.Cleanup(func() {
+		SetGlobalSizeLimits(DefaultSizeLimits())
+	})
+
+	cfg := shared.PEMSizeLimitsConfig{
+		MaxCertificateSize: 100000,
+		MaxPrivateKeySize:  20000,
+		MaxChainLength:     200000,
+		MaxBundleSize:      400000,
+	}
+
+	if err := ApplyGlobalSizeLimits(cfg, logr.Discard()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	got := GetGlobalSizeLimits()
+	if got.MaxCertificateSize != cfg.MaxCertificateSize {
+		t.Errorf("MaxCertificateSize: got %d, want %d", got.MaxCertificateSize, cfg.MaxCertificateSize)
+	}
+	if got.MaxPrivateKeySize != cfg.MaxPrivateKeySize {
+		t.Errorf("MaxPrivateKeySize: got %d, want %d", got.MaxPrivateKeySize, cfg.MaxPrivateKeySize)
+	}
+	if got.MaxChainLength != cfg.MaxChainLength {
+		t.Errorf("MaxChainLength: got %d, want %d", got.MaxChainLength, cfg.MaxChainLength)
+	}
+	if got.MaxBundleSize != cfg.MaxBundleSize {
+		t.Errorf("MaxBundleSize: got %d, want %d", got.MaxBundleSize, cfg.MaxBundleSize)
+	}
+}
+
+// TestApplyGlobalSizeLimits_InvalidConfigRejected covers the runtime safety
+// net: the same validator that runs at startup is invoked here so that values
+// modified after PreRunE cannot silently bypass the constraint checks.
+func TestApplyGlobalSizeLimits_InvalidConfigRejected(t *testing.T) {
+	t.Cleanup(func() {
+		SetGlobalSizeLimits(DefaultSizeLimits())
+	})
+
+	cfg := shared.PEMSizeLimitsConfig{
+		MaxCertificateSize: 400000,
+		MaxPrivateKeySize:  13000,
+		MaxChainLength:     95000,
+		MaxBundleSize:      330000,
+	}
+
+	err := ApplyGlobalSizeLimits(cfg, logr.Discard())
+	if err == nil {
+		t.Fatal("expected error for MaxCertificateSize > MaxBundleSize, got nil")
+	}
+	if !strings.Contains(err.Error(), "must not be larger than maxBundleSize") {
+		t.Errorf("expected error to mention maxBundleSize constraint, got %q", err.Error())
 	}
 }

@@ -23,6 +23,13 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+
+	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	"github.com/cert-manager/cert-manager/internal/apis/config/shared"
+	sharedvalidation "github.com/cert-manager/cert-manager/internal/apis/config/shared/validation"
+	logf "github.com/cert-manager/cert-manager/pkg/logs"
 )
 
 // The constants below are estimates at reasonable upper bounds for sizes of PEM data that cert-manager might encounter.
@@ -134,6 +141,32 @@ var (
 	globalSizeLimits   = DefaultSizeLimits()
 	globalSizeLimitsMu sync.RWMutex
 )
+
+// ApplyGlobalSizeLimits validates the supplied PEM size limits and, on success,
+// applies them to the process-global PEM decoder via SetGlobalSizeLimits.
+// The same validator that runs during config validation is used here as a
+// runtime safety net.
+func ApplyGlobalSizeLimits(cfg shared.PEMSizeLimitsConfig, log logr.Logger) error {
+	if errs := sharedvalidation.ValidatePEMSizeLimitsConfig(&cfg, field.NewPath("pemSizeLimitsConfig")); len(errs) > 0 {
+		return fmt.Errorf("invalid PEM size limits: %w", errs.ToAggregate())
+	}
+
+	limits := NewSizeLimitsFromConfig(
+		cfg.MaxCertificateSize,
+		cfg.MaxPrivateKeySize,
+		cfg.MaxChainLength,
+		cfg.MaxBundleSize,
+	)
+	SetGlobalSizeLimits(limits)
+
+	log.V(logf.InfoLevel).Info("configured PEM size limits",
+		"maxCertificateSize", limits.MaxCertificateSize,
+		"maxPrivateKeySize", limits.MaxPrivateKeySize,
+		"maxChainLength", limits.MaxChainLength,
+		"maxBundleSize", limits.MaxBundleSize)
+
+	return nil
+}
 
 // SetGlobalSizeLimits configures the size limits used by all PEM decode functions
 func SetGlobalSizeLimits(limits SizeLimits) {
