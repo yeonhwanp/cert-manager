@@ -189,7 +189,6 @@ func loadConfigFromFile(
 	return nil
 }
 
-// configurePEMSizeLimits sets the global PEM size limits from the webhook configuration
 func configurePEMSizeLimits(cfg *config.WebhookConfiguration, log logr.Logger) error {
 	if cfg == nil {
 		return fmt.Errorf("webhook configuration is nil")
