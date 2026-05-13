@@ -144,7 +144,7 @@ type ControllerConfiguration struct {
 	ACMEDNS01Config ACMEDNS01Config
 
 	// PEMSizeLimitsConfig configures the maximum sizes for PEM-encoded data
-	PEMSizeLimitsConfig shared.PEMSizeLimitsConfig
+	PEMSizeLimitsConfig PEMSizeLimitsConfig
 
 	// GatewayAPIConfig configures the behaviour of the Gateway API integration
 	GatewayAPIConfig GatewayAPIConfig
@@ -262,3 +262,20 @@ type GatewayAPIConfig struct {
 	ExtraProtocols []string
 }
 
+type PEMSizeLimitsConfig struct {
+	// Maximum size for a single PEM-encoded certificate (in bytes).
+	// Defaults to 36500 bytes.
+	MaxCertificateSize int
+
+	// Maximum size for a single PEM-encoded private key (in bytes).
+	// Defaults to 13000 bytes.
+	MaxPrivateKeySize int
+
+	// Maximum size for a PEM-encoded certificate chain (in bytes).
+	// Defaults to 95000 bytes.
+	MaxChainLength int
+
+	// Maximum size for PEM-encoded certificate bundles (in bytes).
+	// Defaults to 330000 bytes.
+	MaxBundleSize int
+}

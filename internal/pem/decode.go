@@ -25,10 +25,7 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	"github.com/cert-manager/cert-manager/internal/apis/config/shared"
-	sharedvalidation "github.com/cert-manager/cert-manager/internal/apis/config/shared/validation"
 	logf "github.com/cert-manager/cert-manager/pkg/logs"
 )
 
@@ -143,20 +140,30 @@ var (
 )
 
 // ApplyGlobalSizeLimits validates the supplied PEM size limits and, on success,
-// applies them to the process-global PEM decoder via SetGlobalSizeLimits.
-// The same validator that runs during config validation is used here as a
-// runtime safety net.
-func ApplyGlobalSizeLimits(cfg shared.PEMSizeLimitsConfig, log logr.Logger) error {
-	if errs := sharedvalidation.ValidatePEMSizeLimitsConfig(&cfg, field.NewPath("pemSizeLimitsConfig")); len(errs) > 0 {
-		return fmt.Errorf("invalid PEM size limits: %w", errs.ToAggregate())
+// applies them to the process-global PEM decoder via SetGlobalSizeLimits. It
+// runs the same positivity and ordering checks as the per-component config
+// validators, as a runtime safety net.
+func ApplyGlobalSizeLimits(maxCertificateSize, maxPrivateKeySize, maxChainLength, maxBundleSize int, log logr.Logger) error {
+	if maxCertificateSize <= 0 {
+		return fmt.Errorf("maxCertificateSize must be greater than 0, got %d", maxCertificateSize)
+	}
+	if maxPrivateKeySize <= 0 {
+		return fmt.Errorf("maxPrivateKeySize must be greater than 0, got %d", maxPrivateKeySize)
+	}
+	if maxChainLength <= 0 {
+		return fmt.Errorf("maxChainLength must be greater than 0, got %d", maxChainLength)
+	}
+	if maxBundleSize <= 0 {
+		return fmt.Errorf("maxBundleSize must be greater than 0, got %d", maxBundleSize)
+	}
+	if maxCertificateSize > maxBundleSize {
+		return fmt.Errorf("maxCertificateSize (%d) must not be larger than maxBundleSize (%d)", maxCertificateSize, maxBundleSize)
+	}
+	if maxChainLength > maxBundleSize {
+		return fmt.Errorf("maxChainLength (%d) must not exceed maxBundleSize (%d)", maxChainLength, maxBundleSize)
 	}
 
-	limits := NewSizeLimitsFromConfig(
-		cfg.MaxCertificateSize,
-		cfg.MaxPrivateKeySize,
-		cfg.MaxChainLength,
-		cfg.MaxBundleSize,
-	)
+	limits := NewSizeLimitsFromConfig(maxCertificateSize, maxPrivateKeySize, maxChainLength, maxBundleSize)
 	SetGlobalSizeLimits(limits)
 
 	log.V(logf.InfoLevel).Info("configured PEM size limits",

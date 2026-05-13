@@ -25,10 +25,12 @@ import (
 	"reflect"
 	"testing"
 
-	config "github.com/cert-manager/cert-manager/internal/apis/config/controller"
+	"github.com/go-logr/logr"
 	logsapi "k8s.io/component-base/logs/api/v1"
 
 	"github.com/cert-manager/cert-manager/controller-binary/app/options"
+	config "github.com/cert-manager/cert-manager/internal/apis/config/controller"
+	"github.com/cert-manager/cert-manager/internal/pem"
 )
 
 func testCmdCommand(t *testing.T, tempDir string, yaml string, args func(string) []string) (*config.ControllerConfiguration, error) {
@@ -212,3 +214,71 @@ ingressShimConfig: {}
 	}
 }
 
+func TestConfigurePEMSizeLimits(t *testing.T) {
+	// Create a discarding logger for tests
+	log := logr.Discard()
+
+	tests := []struct {
+		name      string
+		config    config.PEMSizeLimitsConfig
+		expectErr bool
+		errMsg    string
+	}{
+		{
+			name: "valid configuration",
+			config: config.PEMSizeLimitsConfig{
+				MaxCertificateSize: 6500,
+				MaxPrivateKeySize:  13000,
+				MaxChainLength:     10,
+				MaxBundleSize:      330000,
+			},
+			expectErr: false,
+		},
+		{
+			name: "zero certificate size",
+			config: config.PEMSizeLimitsConfig{
+				MaxCertificateSize: 0,
+				MaxPrivateKeySize:  13000,
+				MaxChainLength:     10,
+				MaxBundleSize:      330000,
+			},
+			expectErr: true,
+			errMsg:    "maxCertificateSize must be greater than 0, got 0",
+		},
+		{
+			name: "certificate size larger than bundle size",
+			config: config.PEMSizeLimitsConfig{
+				MaxCertificateSize: 400000,
+				MaxPrivateKeySize:  13000,
+				MaxChainLength:     10,
+				MaxBundleSize:      330000,
+			},
+			expectErr: true,
+			errMsg:    "maxCertificateSize (400000) must not be larger than maxBundleSize (330000)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := pem.ApplyGlobalSizeLimits(
+				tt.config.MaxCertificateSize,
+				tt.config.MaxPrivateKeySize,
+				tt.config.MaxChainLength,
+				tt.config.MaxBundleSize,
+				log,
+			)
+
+			if tt.expectErr {
+				if err == nil {
+					t.Errorf("expected error containing %q, got nil", tt.errMsg)
+					return
+				}
+				if tt.errMsg != "" && err.Error() != tt.errMsg {
+					t.Errorf("expected error %q, got %q", tt.errMsg, err.Error())
+				}
+			} else if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}

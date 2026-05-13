@@ -28,8 +28,8 @@ import (
 )
 
 // validPEMSizeLimitsConfig returns a valid PEMSizeLimitsConfig for testing
-func validPEMSizeLimitsConfig() shared.PEMSizeLimitsConfig {
-	return shared.PEMSizeLimitsConfig{
+func validPEMSizeLimitsConfig() config.PEMSizeLimitsConfig {
+	return config.PEMSizeLimitsConfig{
 		MaxCertificateSize: 36500,
 		MaxPrivateKeySize:  13000,
 		MaxChainLength:     95000,
@@ -150,7 +150,7 @@ func TestValidateWebhookConfiguration(t *testing.T) {
 				Logging: logsapi.LoggingConfiguration{
 					Format: "text",
 				},
-				PEMSizeLimitsConfig: shared.PEMSizeLimitsConfig{
+				PEMSizeLimitsConfig: config.PEMSizeLimitsConfig{
 					MaxCertificateSize: 400000,
 					MaxPrivateKeySize:  13000,
 					MaxChainLength:     95000,

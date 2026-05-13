@@ -26,8 +26,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-
-	"github.com/cert-manager/cert-manager/internal/apis/config/shared"
 )
 
 // fuzzFile is a fuzz-test-generated file which causes significant slowdown when passed to
@@ -368,29 +366,29 @@ func TestApplyGlobalSizeLimits_AppliesToGlobal(t *testing.T) {
 		SetGlobalSizeLimits(DefaultSizeLimits())
 	})
 
-	cfg := shared.PEMSizeLimitsConfig{
-		MaxCertificateSize: 100000,
-		MaxPrivateKeySize:  20000,
-		MaxChainLength:     200000,
-		MaxBundleSize:      400000,
-	}
+	const (
+		wantCert   = 100000
+		wantKey    = 20000
+		wantChain  = 200000
+		wantBundle = 400000
+	)
 
-	if err := ApplyGlobalSizeLimits(cfg, logr.Discard()); err != nil {
+	if err := ApplyGlobalSizeLimits(wantCert, wantKey, wantChain, wantBundle, logr.Discard()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	got := GetGlobalSizeLimits()
-	if got.MaxCertificateSize != cfg.MaxCertificateSize {
-		t.Errorf("MaxCertificateSize: got %d, want %d", got.MaxCertificateSize, cfg.MaxCertificateSize)
+	if got.MaxCertificateSize != wantCert {
+		t.Errorf("MaxCertificateSize: got %d, want %d", got.MaxCertificateSize, wantCert)
 	}
-	if got.MaxPrivateKeySize != cfg.MaxPrivateKeySize {
-		t.Errorf("MaxPrivateKeySize: got %d, want %d", got.MaxPrivateKeySize, cfg.MaxPrivateKeySize)
+	if got.MaxPrivateKeySize != wantKey {
+		t.Errorf("MaxPrivateKeySize: got %d, want %d", got.MaxPrivateKeySize, wantKey)
 	}
-	if got.MaxChainLength != cfg.MaxChainLength {
-		t.Errorf("MaxChainLength: got %d, want %d", got.MaxChainLength, cfg.MaxChainLength)
+	if got.MaxChainLength != wantChain {
+		t.Errorf("MaxChainLength: got %d, want %d", got.MaxChainLength, wantChain)
 	}
-	if got.MaxBundleSize != cfg.MaxBundleSize {
-		t.Errorf("MaxBundleSize: got %d, want %d", got.MaxBundleSize, cfg.MaxBundleSize)
+	if got.MaxBundleSize != wantBundle {
+		t.Errorf("MaxBundleSize: got %d, want %d", got.MaxBundleSize, wantBundle)
 	}
 }
 
@@ -402,14 +400,7 @@ func TestApplyGlobalSizeLimits_InvalidConfigRejected(t *testing.T) {
 		SetGlobalSizeLimits(DefaultSizeLimits())
 	})
 
-	cfg := shared.PEMSizeLimitsConfig{
-		MaxCertificateSize: 400000,
-		MaxPrivateKeySize:  13000,
-		MaxChainLength:     95000,
-		MaxBundleSize:      330000,
-	}
-
-	err := ApplyGlobalSizeLimits(cfg, logr.Discard())
+	err := ApplyGlobalSizeLimits(400000, 13000, 95000, 330000, logr.Discard())
 	if err == nil {
 		t.Fatal("expected error for MaxCertificateSize > MaxBundleSize, got nil")
 	}

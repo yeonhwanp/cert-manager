@@ -87,7 +87,13 @@ func Run(rootCtx context.Context, opts *config.ControllerConfiguration) error {
 	}
 
 	// Configure PEM size limits from controller configuration
-	if err := pem.ApplyGlobalSizeLimits(opts.PEMSizeLimitsConfig, log); err != nil {
+	if err := pem.ApplyGlobalSizeLimits(
+		opts.PEMSizeLimitsConfig.MaxCertificateSize,
+		opts.PEMSizeLimitsConfig.MaxPrivateKeySize,
+		opts.PEMSizeLimitsConfig.MaxChainLength,
+		opts.PEMSizeLimitsConfig.MaxBundleSize,
+		log,
+	); err != nil {
 		return fmt.Errorf("failed to configure PEM size limits: %w", err)
 	}
 
