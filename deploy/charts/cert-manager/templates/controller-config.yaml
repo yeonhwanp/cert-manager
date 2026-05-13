@@ -1,13 +1,5 @@
-{{- $perComponentLimits := dict -}}
-{{- if and .Values.config .Values.config.pemSizeLimitsConfig -}}
-{{- $perComponentLimits = .Values.config.pemSizeLimitsConfig -}}
-{{- end -}}
-{{- $pemLimits := merge (dict) $perComponentLimits (default dict .Values.global.pemSizeLimitsConfig) -}}
-{{- if or .Values.config $pemLimits -}}
-{{- $config := default (dict) .Values.config -}}
-{{- if $pemLimits -}}
-{{- $_ := set $config "pemSizeLimitsConfig" $pemLimits -}}
-{{- end -}}
+{{- if .Values.config -}}
+{{- $config := .Values.config -}}
 {{- $_ := set $config "apiVersion" (default "controller.config.cert-manager.io/v1alpha1" $config.apiVersion) -}}
 {{- $_ := set $config "kind" (default "ControllerConfiguration" $config.kind) -}}
 apiVersion: v1

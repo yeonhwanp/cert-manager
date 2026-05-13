@@ -21,11 +21,8 @@ import (
 	"fmt"
 	"os"
 	"slices"
-	"strings"
 	"testing"
 	"time"
-
-	"github.com/go-logr/logr"
 )
 
 // fuzzFile is a fuzz-test-generated file which causes significant slowdown when passed to
@@ -358,53 +355,5 @@ func TestChainSizeCalculation(t *testing.T) {
 	_, _, err = limits.SafeDecodeCertificateChain(largeCert)
 	if err == nil {
 		t.Error("Expected SafeDecodeCertificateChain to fail due to size limits")
-	}
-}
-
-func TestApplyGlobalSizeLimits_AppliesToGlobal(t *testing.T) {
-	t.Cleanup(func() {
-		SetGlobalSizeLimits(DefaultSizeLimits())
-	})
-
-	const (
-		wantCert   = 100000
-		wantKey    = 20000
-		wantChain  = 200000
-		wantBundle = 400000
-	)
-
-	if err := ApplyGlobalSizeLimits(wantCert, wantKey, wantChain, wantBundle, logr.Discard()); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	got := GetGlobalSizeLimits()
-	if got.MaxCertificateSize != wantCert {
-		t.Errorf("MaxCertificateSize: got %d, want %d", got.MaxCertificateSize, wantCert)
-	}
-	if got.MaxPrivateKeySize != wantKey {
-		t.Errorf("MaxPrivateKeySize: got %d, want %d", got.MaxPrivateKeySize, wantKey)
-	}
-	if got.MaxChainLength != wantChain {
-		t.Errorf("MaxChainLength: got %d, want %d", got.MaxChainLength, wantChain)
-	}
-	if got.MaxBundleSize != wantBundle {
-		t.Errorf("MaxBundleSize: got %d, want %d", got.MaxBundleSize, wantBundle)
-	}
-}
-
-// TestApplyGlobalSizeLimits_InvalidConfigRejected covers the runtime safety
-// net: the same validator that runs at startup is invoked here so that values
-// modified after PreRunE cannot silently bypass the constraint checks.
-func TestApplyGlobalSizeLimits_InvalidConfigRejected(t *testing.T) {
-	t.Cleanup(func() {
-		SetGlobalSizeLimits(DefaultSizeLimits())
-	})
-
-	err := ApplyGlobalSizeLimits(400000, 13000, 95000, 330000, logr.Discard())
-	if err == nil {
-		t.Fatal("expected error for MaxCertificateSize > MaxBundleSize, got nil")
-	}
-	if !strings.Contains(err.Error(), "must not be larger than maxBundleSize") {
-		t.Errorf("expected error to mention maxBundleSize constraint, got %q", err.Error())
 	}
 }
