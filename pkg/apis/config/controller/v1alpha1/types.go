@@ -38,10 +38,17 @@ type ControllerConfiguration struct {
 	APIServerHost string `json:"apiServerHost,omitempty"`
 
 	// Indicates the maximum queries-per-second requests to the Kubernetes apiserver
+	// When this and kubernetesAPIBurst are omitted, client-side rate limiting is
+	// disabled if API Priority and Fairness is detected, otherwise 20 QPS and
+	// 50 burst are used. Explicit values are honored regardless of APF.
+	// If only kubernetesAPIBurst is set, this defaults to 20. Set to -1 to
+	// disable client-side rate limiting explicitly. Zero uses client-go's default.
 	// TODO: floats are not recommended. Maybe we should use resource.Quantity? https://kubernetes.io/docs/reference/kubernetes-api/common-definitions/quantity/
 	KubernetesAPIQPS *float32 `json:"kubernetesAPIQPS,omitempty"`
 
 	// The maximum burst queries-per-second of requests sent to the Kubernetes apiserver
+	// If only kubernetesAPIQPS is set, this defaults to 50. Setting either field
+	// overrides API Priority and Fairness detection. Zero uses client-go's default.
 	KubernetesAPIBurst *int32 `json:"kubernetesAPIBurst,omitempty"`
 
 	// If set, this limits the scope of cert-manager to a single namespace and

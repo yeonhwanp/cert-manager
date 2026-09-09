@@ -69,8 +69,13 @@ func AddConfigFlags(fs *pflag.FlagSet, c *config.ControllerConfiguration) {
 		"will be attempted.")
 	fs.StringVar(&c.KubeConfig, "kubeconfig", c.KubeConfig, ""+
 		"Paths to a kubeconfig. Only required if out-of-cluster.")
-	fs.Float32Var(&c.KubernetesAPIQPS, "kube-api-qps", c.KubernetesAPIQPS, "indicates the maximum queries-per-second requests to the Kubernetes apiserver")
-	fs.IntVar(&c.KubernetesAPIBurst, "kube-api-burst", c.KubernetesAPIBurst, "the maximum burst queries-per-second of requests sent to the Kubernetes apiserver")
+	fs.Float32Var(&c.KubernetesAPIQPS, "kube-api-qps", c.KubernetesAPIQPS, ""+
+		"The maximum queries-per-second requests to the Kubernetes apiserver. "+
+		"When neither QPS nor burst is configured, client-side rate limiting is disabled if API Priority and Fairness is detected, otherwise 20 QPS and 50 burst are used. "+
+		"Explicit values are honored regardless of APF; if only burst is configured, QPS defaults to 20. Set QPS to -1 to disable client-side rate limiting. Zero uses client-go's default.")
+	fs.IntVar(&c.KubernetesAPIBurst, "kube-api-burst", c.KubernetesAPIBurst, ""+
+		"The maximum burst of requests sent to the Kubernetes apiserver. "+
+		"Setting either QPS or burst overrides API Priority and Fairness detection; if only QPS is configured, burst defaults to 50. Zero uses client-go's default.")
 	fs.StringVar(&c.ClusterResourceNamespace, "cluster-resource-namespace", c.ClusterResourceNamespace, ""+
 		"Namespace to store resources owned by cluster scoped resources such as ClusterIssuer in. "+
 		"This must be specified if ClusterIssuers are enabled.")

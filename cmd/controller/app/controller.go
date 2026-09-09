@@ -65,7 +65,7 @@ const (
 	defaultReadHeaderTimeout = 32 * time.Second
 )
 
-func Run(rootCtx context.Context, opts *config.ControllerConfiguration) error {
+func Run(rootCtx context.Context, opts *config.ControllerConfiguration, kubernetesAPIRateLimitsSet bool) error {
 	rootCtx, cancelContext := context.WithCancel(rootCtx)
 	defer cancelContext()
 
@@ -75,7 +75,7 @@ func Run(rootCtx context.Context, opts *config.ControllerConfiguration) error {
 	versionInfo := util.VersionInfo()
 	log.Info("starting cert-manager controller", "version", versionInfo.GitVersion, "git_commit", versionInfo.GitCommit, "go_version", versionInfo.GoVersion, "platform", versionInfo.Platform)
 
-	ctxFactory, err := buildControllerContextFactory(rootCtx, opts)
+	ctxFactory, err := buildControllerContextFactory(rootCtx, opts, kubernetesAPIRateLimitsSet)
 	if err != nil {
 		return err
 	}
@@ -292,7 +292,7 @@ func Run(rootCtx context.Context, opts *config.ControllerConfiguration) error {
 
 // buildControllerContextFactory builds a new controller ContextFactory which
 // can build controller contexts for each component.
-func buildControllerContextFactory(ctx context.Context, opts *config.ControllerConfiguration) (*controller.ContextFactory, error) {
+func buildControllerContextFactory(ctx context.Context, opts *config.ControllerConfiguration, kubernetesAPIRateLimitsSet bool) (*controller.ContextFactory, error) {
 	log := logf.FromContext(ctx)
 
 	nameservers := opts.ACMEDNS01Config.RecursiveNameservers
@@ -327,10 +327,11 @@ func buildControllerContextFactory(ctx context.Context, opts *config.ControllerC
 	ACMEHTTP01SolverRunAsNonRoot := opts.ACMEHTTP01Config.SolverRunAsNonRoot
 
 	ctxFactory, err := controller.NewContextFactory(ctx, controller.ContextOptions{
-		Kubeconfig:         opts.KubeConfig,
-		KubernetesAPIQPS:   opts.KubernetesAPIQPS,
-		KubernetesAPIBurst: opts.KubernetesAPIBurst,
-		APIServerHost:      opts.APIServerHost,
+		Kubeconfig:                 opts.KubeConfig,
+		KubernetesAPIQPS:           opts.KubernetesAPIQPS,
+		KubernetesAPIBurst:         opts.KubernetesAPIBurst,
+		KubernetesAPIRateLimitsSet: kubernetesAPIRateLimitsSet,
+		APIServerHost:              opts.APIServerHost,
 
 		Namespace: opts.Namespace,
 

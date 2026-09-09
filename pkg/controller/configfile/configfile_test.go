@@ -21,6 +21,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cert-manager/cert-manager/pkg/util/configfile"
 )
 
@@ -52,4 +55,52 @@ kubeConfig: %s`, kubeConfigPath), nil
 	if controllerConfig.Config.KubeConfig != absKubeConfigPath {
 		t.Errorf("expected kubeConfig to be set to %q but got %q", absKubeConfigPath, controllerConfig.Config.KubeConfig)
 	}
+}
+
+func TestDecodeAndConfigureRateLimits(t *testing.T) {
+	tests := []struct {
+		name          string
+		config        string
+		qps           float32
+		burst         int
+		limitsSet     bool
+		errorContains string
+	}{
+		{name: "omitted", qps: 20, burst: 50},
+		{name: "null values", config: "kubernetesAPIQPS: null\nkubernetesAPIBurst: null", qps: 20, burst: 50},
+		{name: "explicit defaults", config: "kubernetesAPIQPS: 20\nkubernetesAPIBurst: 50", qps: 20, burst: 50, limitsSet: true},
+		{name: "QPS only", config: "kubernetesAPIQPS: 7", qps: 7, burst: 50, limitsSet: true},
+		{name: "burst only", config: "kubernetesAPIBurst: 30", qps: 20, burst: 30, limitsSet: true},
+		{name: "zero values", config: "kubernetesAPIQPS: 0\nkubernetesAPIBurst: 0", limitsSet: true},
+		{name: "unlimited", config: "kubernetesAPIQPS: -1", qps: -1, burst: 50, limitsSet: true},
+		{name: "unknown field", config: "unknownField: true", errorContains: `unknown field "unknownField"`},
+		{name: "duplicate field", config: "kubernetesAPIQPS: 7\nkubernetesAPIQPS: 20", errorContains: "already set in map"},
+		{name: "invalid type", config: "kubernetesAPIQPS: invalid", errorContains: "cannot unmarshal"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := New()
+			err := cfg.DecodeAndConfigure([]byte("apiVersion: controller.config.cert-manager.io/v1alpha1\nkind: ControllerConfiguration\n" + tc.config))
+			if tc.errorContains != "" {
+				require.ErrorContains(t, err, tc.errorContains)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.qps, cfg.Config.KubernetesAPIQPS)
+			assert.Equal(t, tc.burst, cfg.Config.KubernetesAPIBurst)
+			assert.Equal(t, tc.limitsSet, cfg.KubernetesAPIRateLimitsSet)
+		})
+	}
+}
+
+func TestDecodeAndConfigureReplacesRateLimits(t *testing.T) {
+	cfg := New()
+	config := "apiVersion: controller.config.cert-manager.io/v1alpha1\nkind: ControllerConfiguration\n"
+	require.NoError(t, cfg.DecodeAndConfigure([]byte(config+"kubernetesAPIQPS: 7")))
+	require.True(t, cfg.KubernetesAPIRateLimitsSet)
+
+	require.NoError(t, cfg.DecodeAndConfigure([]byte(config)))
+	assert.False(t, cfg.KubernetesAPIRateLimitsSet)
+	assert.Equal(t, float32(20), cfg.Config.KubernetesAPIQPS)
+	assert.Equal(t, 50, cfg.Config.KubernetesAPIBurst)
 }

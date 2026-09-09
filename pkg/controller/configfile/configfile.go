@@ -23,10 +23,14 @@ import (
 
 	config "github.com/cert-manager/cert-manager/internal/apis/config/controller"
 	"github.com/cert-manager/cert-manager/internal/apis/config/controller/scheme"
+	configv1alpha1 "github.com/cert-manager/cert-manager/pkg/apis/config/controller/v1alpha1"
 )
 
 type ControllerConfigFile struct {
 	Config *config.ControllerConfiguration
+
+	// KubernetesAPIRateLimitsSet records explicit file settings before defaulting.
+	KubernetesAPIRateLimitsSet bool
 }
 
 func New() *ControllerConfigFile {
@@ -35,32 +39,38 @@ func New() *ControllerConfigFile {
 	}
 }
 
-func decodeConfiguration(data []byte) (*config.ControllerConfiguration, error) {
-	_, codec, err := scheme.NewSchemeAndCodecs(serializer.EnableStrict)
+func decodeConfiguration(data []byte) (*config.ControllerConfiguration, bool, error) {
+	s, codec, err := scheme.NewSchemeAndCodecs(serializer.EnableStrict)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	obj, _, err := codec.UniversalDecoder().Decode(data, nil, nil)
+	obj, _, err := codec.UniversalDeserializer().Decode(data, nil, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode: %w", err)
+		return nil, false, fmt.Errorf("failed to decode: %w", err)
 	}
 
-	c, ok := obj.(*config.ControllerConfiguration)
+	versioned, ok := obj.(*configv1alpha1.ControllerConfiguration)
 	if !ok {
-		return nil, fmt.Errorf("failed to cast object to ControllerConfiguration, unexpected type")
+		return nil, false, fmt.Errorf("failed to cast object to ControllerConfiguration, unexpected type")
 	}
 
-	return c, nil
-
+	limitsSet := versioned.KubernetesAPIQPS != nil || versioned.KubernetesAPIBurst != nil
+	s.Default(versioned)
+	c := &config.ControllerConfiguration{}
+	if err := s.Convert(versioned, c, nil); err != nil {
+		return nil, false, fmt.Errorf("failed to convert: %w", err)
+	}
+	return c, limitsSet, nil
 }
 
 func (cfg *ControllerConfigFile) DecodeAndConfigure(data []byte) error {
-	config, err := decodeConfiguration(data)
+	config, limitsSet, err := decodeConfiguration(data)
 	if err != nil {
 		return err
 	}
 	cfg.Config = config
+	cfg.KubernetesAPIRateLimitsSet = limitsSet
 
 	return nil
 }

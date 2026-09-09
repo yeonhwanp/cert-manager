@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path"
 	"reflect"
@@ -27,12 +29,15 @@ import (
 
 	config "github.com/cert-manager/cert-manager/internal/apis/config/controller"
 	"github.com/go-logr/logr"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	flowcontrolapi "k8s.io/api/flowcontrol/v1"
 	logsapi "k8s.io/component-base/logs/api/v1"
 
 	"github.com/cert-manager/cert-manager/controller-binary/app/options"
 )
 
-func testCmdCommand(t *testing.T, tempDir string, yaml string, args func(string) []string) (*config.ControllerConfiguration, error) {
+func testCmdCommand(t *testing.T, tempDir string, yaml string, args func(string) []string) (*config.ControllerConfiguration, bool, error) {
 	var tempFilePath string
 
 	func() {
@@ -50,12 +55,14 @@ func testCmdCommand(t *testing.T, tempDir string, yaml string, args func(string)
 	}()
 
 	var finalConfig *config.ControllerConfiguration
+	var finalLimitsSet bool
 
 	if err := logsapi.ResetForTest(nil); err != nil {
 		t.Error(err)
 	}
-	cmd := newServerCommand(t.Context(), func(ctx context.Context, cc *config.ControllerConfiguration) error {
+	cmd := newServerCommand(t.Context(), func(ctx context.Context, cc *config.ControllerConfiguration, limitsSet bool) error {
 		finalConfig = cc
+		finalLimitsSet = limitsSet
 		return nil
 	}, args(tempFilePath))
 
@@ -63,7 +70,7 @@ func testCmdCommand(t *testing.T, tempDir string, yaml string, args func(string)
 	cmd.SetOut(io.Discard)
 
 	err := cmd.ExecuteContext(t.Context())
-	return finalConfig, err
+	return finalConfig, finalLimitsSet, err
 }
 
 func TestFlagsAndConfigFile(t *testing.T) {
@@ -196,7 +203,7 @@ ingressShimConfig: {}
 		t.Run(fmt.Sprintf("test-%d", i), func(t *testing.T) {
 			tempDir := t.TempDir()
 
-			config, err := testCmdCommand(t, tempDir, tc.yaml, tc.args)
+			config, _, err := testCmdCommand(t, tempDir, tc.yaml, tc.args)
 			if tc.expError != (err != nil) {
 				if err == nil {
 					t.Error("expected error, got nil")
@@ -283,6 +290,83 @@ func TestConfigurePEMSizeLimits(t *testing.T) {
 				}
 			} else if err != nil {
 				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestRateLimitFlagsAndConfigFile(t *testing.T) {
+	tests := []struct {
+		name          string
+		config        string
+		flags         []string
+		qps           float32
+		burst         int
+		limitsSet     bool
+		errorContains string
+	}{
+		{name: "no configuration", qps: 20, burst: 50},
+		{name: "empty config", config: "\n", qps: 20, burst: 50},
+		{name: "null values", config: "kubernetesAPIQPS: null\nkubernetesAPIBurst: null", qps: 20, burst: 50},
+		{name: "explicit CLI defaults", flags: []string{"--kube-api-qps=20", "--kube-api-burst=50"}, qps: 20, burst: 50, limitsSet: true},
+		{name: "explicit file defaults", config: "kubernetesAPIQPS: 20\nkubernetesAPIBurst: 50", qps: 20, burst: 50, limitsSet: true},
+		{name: "CLI QPS only", flags: []string{"--kube-api-qps=7"}, qps: 7, burst: 50, limitsSet: true},
+		{name: "CLI burst only", flags: []string{"--kube-api-burst=30"}, qps: 20, burst: 30, limitsSet: true},
+		{name: "file QPS only", config: "kubernetesAPIQPS: 7", qps: 7, burst: 50, limitsSet: true},
+		{name: "file burst only", config: "kubernetesAPIBurst: 30", qps: 20, burst: 30, limitsSet: true},
+		{name: "CLI overrides both file values", config: "kubernetesAPIQPS: 7\nkubernetesAPIBurst: 30", flags: []string{"--kube-api-qps=20", "--kube-api-burst=50"}, qps: 20, burst: 50, limitsSet: true},
+		{name: "CLI QPS preserves file burst", config: "kubernetesAPIQPS: 7\nkubernetesAPIBurst: 30", flags: []string{"--kube-api-qps=20"}, qps: 20, burst: 30, limitsSet: true},
+		{name: "CLI burst preserves file QPS", config: "kubernetesAPIQPS: 7\nkubernetesAPIBurst: 30", flags: []string{"--kube-api-burst=50"}, qps: 7, burst: 50, limitsSet: true},
+		{name: "file QPS and CLI burst", config: "kubernetesAPIQPS: 7", flags: []string{"--kube-api-burst=30"}, qps: 7, burst: 30, limitsSet: true},
+		{name: "file burst and CLI QPS", config: "kubernetesAPIBurst: 30", flags: []string{"--kube-api-qps=7"}, qps: 7, burst: 30, limitsSet: true},
+		{name: "CLI QPS with empty file", config: "\n", flags: []string{"--kube-api-qps=20"}, qps: 20, burst: 50, limitsSet: true},
+		{name: "CLI burst with empty file", config: "\n", flags: []string{"--kube-api-burst=50"}, qps: 20, burst: 50, limitsSet: true},
+		{name: "CLI unlimited", flags: []string{"--kube-api-qps=-1"}, qps: -1, burst: 50, limitsSet: true},
+		{name: "file unlimited", config: "kubernetesAPIQPS: -1\nkubernetesAPIBurst: -1", qps: -1, burst: -1, limitsSet: true},
+		{name: "CLI zero", flags: []string{"--kube-api-qps=0", "--kube-api-burst=0"}, limitsSet: true},
+		{name: "file zero", config: "kubernetesAPIQPS: 0\nkubernetesAPIBurst: 0", limitsSet: true},
+		{name: "fractional negative", config: "kubernetesAPIQPS: -0.5", qps: -0.5, burst: 50, limitsSet: true},
+		{name: "partial config still validates", config: "kubernetesAPIBurst: 10", errorContains: "must be higher or equal to kubernetesAPIQPS"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			yaml := "apiVersion: controller.config.cert-manager.io/v1alpha1\nkind: ControllerConfiguration\n" + tc.config
+			cc, limitsSet, err := testCmdCommand(t, t.TempDir(), yaml, func(filename string) []string {
+				args := []string{}
+				if tc.config != "" {
+					args = append(args, "--config="+filename)
+				}
+				return append(args, tc.flags...)
+			})
+			if tc.errorContains != "" {
+				require.ErrorContains(t, err, tc.errorContains)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, cc)
+			assert.Equal(t, tc.qps, cc.KubernetesAPIQPS)
+			assert.Equal(t, tc.burst, cc.KubernetesAPIBurst)
+			assert.Equal(t, tc.limitsSet, limitsSet)
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				if tc.limitsSet {
+					t.Error("explicit configuration must not probe APF")
+				}
+				assert.Equal(t, "/livez/ping", req.URL.Path)
+				w.Header().Set(flowcontrolapi.ResponseHeaderMatchedFlowSchemaUID, "unused-uuid")
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer server.Close()
+			cc.APIServerHost = server.URL
+			factory, err := buildControllerContextFactory(t.Context(), cc, limitsSet)
+			require.NoError(t, err)
+			controllerContext, err := factory.Build("controller")
+			require.NoError(t, err)
+			assert.Equal(t, tc.limitsSet, controllerContext.KubernetesAPIRateLimitsSet)
+			if tc.limitsSet && tc.qps >= 0 {
+				assert.NotNil(t, controllerContext.RESTConfig.RateLimiter)
+			} else {
+				assert.Nil(t, controllerContext.RESTConfig.RateLimiter)
 			}
 		})
 	}

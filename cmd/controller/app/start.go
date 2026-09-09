@@ -58,7 +58,7 @@ func NewServerCommand(ctx context.Context) *cobra.Command {
 
 func newServerCommand(
 	setupCtx context.Context,
-	run func(context.Context, *config.ControllerConfiguration) error,
+	run func(context.Context, *config.ControllerConfiguration, bool) error,
 	allArgs []string,
 ) *cobra.Command {
 	log := logf.FromContext(setupCtx, componentController)
@@ -70,6 +70,7 @@ func newServerCommand(
 		os.Exit(1)
 	}
 
+	var kubernetesAPIRateLimitsSet bool
 	cmd := &cobra.Command{
 		Use: componentController,
 		Long: `
@@ -83,7 +84,7 @@ to renew certificates at an appropriate time before expiry.`,
 		SilenceUsage:  true, // Don't print usage on every error
 
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if err := loadConfigFromFile(
+			limitsSet, err := loadConfigFromFile(
 				cmd, allArgs, controllerFlags.Config, controllerConfig,
 				func() error {
 					// set feature gates from initial flags-based config
@@ -93,9 +94,12 @@ to renew certificates at an appropriate time before expiry.`,
 
 					return nil
 				},
-			); err != nil {
+			)
+			if err != nil {
 				return err
 			}
+
+			kubernetesAPIRateLimitsSet = limitsSet || cmd.Flags().Changed("kube-api-qps") || cmd.Flags().Changed("kube-api-burst")
 
 			if err := validation.ValidateControllerConfiguration(controllerConfig, nil); len(err) > 0 {
 				return fmt.Errorf("error validating flags: %w", err.ToAggregate())
@@ -113,7 +117,7 @@ to renew certificates at an appropriate time before expiry.`,
 		},
 		//nolint:contextcheck // False positive
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return run(cmd.Context(), controllerConfig)
+			return run(cmd.Context(), controllerConfig, kubernetesAPIRateLimitsSet)
 		},
 	}
 
@@ -130,7 +134,8 @@ to renew certificates at an appropriate time before expiry.`,
 // loadConfigFromFile loads the configuration from the provided config file
 // path, if one is provided. After loading the config file, the flags are
 // re-parsed to ensure that any flags provided to the command line override
-// those provided in the config file.
+// those provided in the config file. It returns whether the file explicitly
+// configures QPS or burst.
 // The newConfigHook is called when the options have been loaded from the
 // flags (but not yet the config file) and is re-called after the config file
 // has been loaded. This allows us to use the feature flags set by the flags
@@ -141,43 +146,44 @@ func loadConfigFromFile(
 	configFilePath string,
 	cfg *config.ControllerConfiguration,
 	newConfigHook func() error,
-) error {
+) (bool, error) {
 	if err := newConfigHook(); err != nil {
-		return err
+		return false, err
 	}
 
 	if len(configFilePath) > 0 {
 		// compute absolute path based on current working dir
 		controllerConfigFile, err := filepath.Abs(configFilePath)
 		if err != nil {
-			return fmt.Errorf("failed to load config file %s, error %v", configFilePath, err)
+			return false, fmt.Errorf("failed to load config file %s, error %v", configFilePath, err)
 		}
 
 		loader, err := configfile.NewConfigurationFSLoader(nil, controllerConfigFile)
 		if err != nil {
-			return fmt.Errorf("failed to load config file %s, error %v", configFilePath, err)
+			return false, fmt.Errorf("failed to load config file %s, error %v", configFilePath, err)
 		}
 
 		controllerConfigFromFile := controllerconfigfile.New()
 		if err := loader.Load(controllerConfigFromFile); err != nil {
-			return fmt.Errorf("failed to load config file %s, error %v", configFilePath, err)
+			return false, fmt.Errorf("failed to load config file %s, error %v", configFilePath, err)
 		}
 
 		controllerConfigFromFile.Config.DeepCopyInto(cfg)
 
 		_, args, err := cmd.Root().Find(allArgs)
 		if err != nil {
-			return fmt.Errorf("failed to re-parse flags: %w", err)
+			return false, fmt.Errorf("failed to re-parse flags: %w", err)
 		}
 
 		if err := cmd.ParseFlags(args); err != nil {
-			return fmt.Errorf("failed to re-parse flags: %w", err)
+			return false, fmt.Errorf("failed to re-parse flags: %w", err)
 		}
 
 		if err := newConfigHook(); err != nil {
-			return err
+			return false, err
 		}
+		return controllerConfigFromFile.KubernetesAPIRateLimitsSet, nil
 	}
 
-	return nil
+	return false, nil
 }
