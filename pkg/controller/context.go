@@ -153,6 +153,11 @@ type ContextOptions struct {
 	// KubernetesAPIBurst is the value of the Maximum burst for throttle.
 	KubernetesAPIBurst int
 
+	// KubernetesAPIRateLimitsSet indicates whether QPS or burst was explicitly
+	// configured. If false, API Priority and Fairness detection can disable
+	// client-side rate limiting.
+	KubernetesAPIRateLimitsSet bool
+
 	// Namespace is the namespace to operate within.
 	// If unset, operates on all namespaces
 	Namespace string
@@ -294,14 +299,17 @@ func NewContextFactory(ctx context.Context, opts ContextOptions) (*ContextFactor
 	restConfig = util.RestConfigWithUserAgent(restConfig)
 	log := logf.FromContext(ctx)
 
-	const apfProbeTimeout = 5 * time.Second
-	apfProbeCtx, cancel := context.WithTimeout(ctx, apfProbeTimeout)
-	defer cancel()
+	var apfEnabled bool
+	if !opts.KubernetesAPIRateLimitsSet {
+		const apfProbeTimeout = 5 * time.Second
+		apfProbeCtx, cancel := context.WithTimeout(ctx, apfProbeTimeout)
+		defer cancel()
 
-	apfEnabled, err := isAPFEnabled(apfProbeCtx, restConfig)
-	if err != nil {
-		log.Error(err, "Failed to determine whether API Priority and Fairness is enabled, falling back to client-side rate limiting")
-		apfEnabled = false
+		apfEnabled, err = isAPFEnabled(apfProbeCtx, restConfig)
+		if err != nil {
+			log.Error(err, "Failed to determine whether API Priority and Fairness is enabled, falling back to client-side rate limiting")
+			apfEnabled = false
+		}
 	}
 
 	if apfEnabled {
