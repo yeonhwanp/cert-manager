@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"sync/atomic"
 	"testing"
 
 	config "github.com/cert-manager/cert-manager/internal/apis/config/controller"
@@ -330,9 +331,19 @@ func TestRateLimitFlagsAndConfigFile(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				if tc.limitsSet {
+					t.Error("explicit configuration must not probe APF")
+				}
+				assert.Equal(t, "/livez/ping", req.URL.Path)
+				w.Header().Set(flowcontrolapi.ResponseHeaderMatchedFlowSchemaUID, "unused-uuid")
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer server.Close()
+
 			yaml := "apiVersion: controller.config.cert-manager.io/v1alpha1\nkind: ControllerConfiguration\n" + tc.config
 			cc, limitsSet, err := testCmdCommand(t, t.TempDir(), yaml, func(filename string) []string {
-				args := []string{}
+				args := []string{"--master=" + server.URL}
 				if tc.config != "" {
 					args = append(args, "--config="+filename)
 				}
@@ -348,16 +359,6 @@ func TestRateLimitFlagsAndConfigFile(t *testing.T) {
 			assert.Equal(t, tc.burst, cc.KubernetesAPIBurst)
 			assert.Equal(t, tc.limitsSet, limitsSet)
 
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				if tc.limitsSet {
-					t.Error("explicit configuration must not probe APF")
-				}
-				assert.Equal(t, "/livez/ping", req.URL.Path)
-				w.Header().Set(flowcontrolapi.ResponseHeaderMatchedFlowSchemaUID, "unused-uuid")
-				w.WriteHeader(http.StatusOK)
-			}))
-			defer server.Close()
-			cc.APIServerHost = server.URL
 			factory, err := buildControllerContextFactory(t.Context(), cc, limitsSet)
 			require.NoError(t, err)
 			controllerContext, err := factory.Build("controller")
@@ -368,6 +369,41 @@ func TestRateLimitFlagsAndConfigFile(t *testing.T) {
 			} else {
 				assert.Nil(t, controllerContext.RESTConfig.RateLimiter)
 			}
+		})
+	}
+}
+
+func TestRunRateLimits(t *testing.T) {
+	tests := []struct {
+		name           string
+		flags          []string
+		expectedProbes int32
+	}{
+		{name: "omitted limits probe APF", expectedProbes: 1},
+		{name: "explicit limits skip APF", flags: []string{"--kube-api-qps=20", "--kube-api-burst=50"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var probeRequests atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				probeRequests.Add(1)
+				assert.Equal(t, http.MethodHead, req.Method)
+				assert.Equal(t, "/livez/ping", req.URL.Path)
+				w.Header().Set(flowcontrolapi.ResponseHeaderMatchedFlowSchemaUID, "unused-uuid")
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer server.Close()
+
+			require.NoError(t, logsapi.ResetForTest(nil))
+			// Stop after client construction, before starting servers or controllers.
+			args := append([]string{"--master=" + server.URL, "--metrics-listen-address=invalid-address"}, tc.flags...)
+			cmd := newServerCommand(t.Context(), Run, args)
+			cmd.SetErr(io.Discard)
+			cmd.SetOut(io.Discard)
+
+			err := cmd.ExecuteContext(t.Context())
+			require.ErrorContains(t, err, "failed to listen on prometheus address invalid-address")
+			assert.Equal(t, tc.expectedProbes, probeRequests.Load())
 		})
 	}
 }

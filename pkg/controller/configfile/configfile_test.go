@@ -104,3 +104,9 @@ func TestDecodeAndConfigureReplacesRateLimits(t *testing.T) {
 	assert.Equal(t, float32(20), cfg.Config.KubernetesAPIQPS)
 	assert.Equal(t, 50, cfg.Config.KubernetesAPIBurst)
 }
+
+func TestDecodeAndConfigureRejectsWrongKind(t *testing.T) {
+	cfg := New()
+	err := cfg.DecodeAndConfigure([]byte("apiVersion: controller.config.cert-manager.io/v1alpha1\nkind: ListOptions\n"))
+	require.ErrorContains(t, err, "failed to cast object to ControllerConfiguration, unexpected type")
+}
